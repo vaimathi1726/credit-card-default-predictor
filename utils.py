@@ -2,13 +2,20 @@ import pandas as pd
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.decomposition import PCA
 from sklearn.metrics.pairwise import rbf_kernel
-from sklearn.metrics import precision_recall_fscore_support, accuracy_score
+from sklearn.metrics import precision_recall_fscore_support,accuracy_score, precision_score, recall_score, f1_score
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.metrics.pairwise import rbf_kernel
 from sklearn.base import clone
 from sklearn.model_selection import ParameterGrid
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+from sklearn.preprocessing import StandardScaler, PolynomialFeatures
+from sklearn.decomposition   import PCA
+from sklearn.svm             import SVC, LinearSVC
+from sklearn.linear_model    import LogisticRegression
+from sklearn.neural_network  import MLPClassifier
+from sklearn.base            import clone
+from sklearn.metrics.pairwise import rbf_kernel
+
 
 
 
@@ -40,6 +47,13 @@ def preprocess_credit_card_data(df):
 
 
 
+from sklearn.model_selection import ParameterGrid
+from sklearn.base import clone
+from sklearn.metrics import accuracy_score, precision_recall_fscore_support
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.decomposition import PCA
+from sklearn.metrics.pairwise import rbf_kernel
+
 def grid_evaluate(
     estimator,
     param_grid,
@@ -47,91 +61,144 @@ def grid_evaluate(
     y_train, y_validation
 ):
     """
-    #This function replicates the functionality of the grid_search function in sklearn, but allows for more customization on our end
-      - 'feature_method': [None, 'polynomial', 'pca', 'rbf']
-      - 'degree':         [2,3]       (for polynomial)
-      - 'n_components':   [5,10]      (for PCA)
-      - 'gamma':          [0.1,0.5]   (for RBF)
-      - 'hidden_layer_sizes': [(15,), (20,), (15,15)],
-      - 'activation':         ['relu', 'tanh'],
-      - 'alpha':              [1e-4, 1e-3], #L2 penalty (weight decay)
-      - 'learning_rate_init': [1e-3, 1e-2],
-      + any estimator params (e.g. 'C', 'penalty', etc.)
+    Custom grid search with optional feature transforms and model-specific parameters.
+    Returns a tuple: (results_dataframe, best_trained_model)
     """
     rows = []
-    i=0
+    best_f1 = -1
+    best_model = None
+    best_transform = None
+    i = 0
+
     for params in ParameterGrid(param_grid):
         i += 1
-        #pull out transform params
-        fm = params.pop('feature_method', None)
-        deg = params.pop('degree', None)
-        ncomp = params.pop('n_components', None)
-        gam = params.pop('gamma', None)
 
-        #fit+transform on train, transform on validation
-        
+        # extract feature transform params
+        fm    = params.pop('feature_method', None)
+        deg   = params.pop('degree', None)
+        ncomp = params.pop('n_components', None)
+        gam   = params.pop('gamma', None)
+
+        # apply feature transformation
         if fm == 'polynomial':
             poly = PolynomialFeatures(degree=deg, include_bias=False)
             X_tr = poly.fit_transform(X_train)
             X_val = poly.transform(X_validation)
-
         elif fm == 'pca':
             pca = PCA(n_components=ncomp)
             X_tr = pca.fit_transform(X_train)
             X_val = pca.transform(X_validation)
-
         elif fm == 'rbf':
             X_tr = rbf_kernel(X_train, X_train, gamma=gam)
-            X_val = rbf_kernel(X_validation,  X_train, gamma=gam)
-
+            X_val = rbf_kernel(X_validation, X_train, gamma=gam)
         else:
             X_tr, X_val = X_train, X_validation
 
-        #train & predict
+        # fit model
         clf = clone(estimator).set_params(**params)
         clf.fit(X_tr, y_train)
-        y_pred_validation = clf.predict(X_val)
-        y_pred_train = clf.predict(X_tr)
 
-        #validation metrics
-        acc_validation  = accuracy_score(y_validation, y_pred_validation)
-        prec_validation, rec_validation, f1_validation, _ = precision_recall_fscore_support(
-            y_validation, y_pred_validation, average='binary', zero_division=0
+        # predictions
+        y_pred_val = clf.predict(X_val)
+        y_pred_tr  = clf.predict(X_tr)
+
+        # validation metrics
+        acc_val  = accuracy_score(y_validation, y_pred_val)
+        prec_val, rec_val, f1_val, _ = precision_recall_fscore_support(
+            y_validation, y_pred_val, average='binary', zero_division=0
         )
 
-        #train metrics
-        acc_train  = accuracy_score(y_train, y_pred_train)
-        prec_train, rec_train, f1_train, _ = precision_recall_fscore_support(
-            y_train, y_pred_train, average='binary', zero_division=0
+        # training metrics
+        acc_tr  = accuracy_score(y_train, y_pred_tr)
+        prec_tr, rec_tr, f1_tr, _ = precision_recall_fscore_support(
+            y_train, y_pred_tr, average='binary', zero_division=0
         )
 
-        #record
+        # save best model
+        if f1_val > best_f1:
+            best_f1 = f1_val
+            best_model = clf  # already fitted
+            best_transform = (fm, deg, ncomp, gam)
+
+        # default/cleanup for output
         if fm is None:
             fm = 'Linear'
         if fm != 'polynomial':
             deg = 1
-        
-        record = {
-            'feature_method': fm,
-            'degree':         deg,
-            'n_components':   ncomp,
-            'gamma':          gam,
-            'accuracy_validation':       acc_validation,
-            'accuracy_train':      acc_train,
-            'precision_validation':      prec_validation,
-            'recall_validation':         rec_validation,
-            'f1_validation':       f1_validation,
-            'f1_train':      f1_train,
-            'precision_train':      prec_train,
-            'recall_train':         rec_train,
-        }
 
-       
-        
-        record.update(params)  #remaining clf params
+        record = {
+            'feature_method':        fm,
+            'degree':                deg,
+            'n_components':          ncomp,
+            'gamma':                 gam,
+            'accuracy_validation':   acc_val,
+            'accuracy_train':        acc_tr,
+            'precision_validation':  prec_val,
+            'recall_validation':     rec_val,
+            'f1_validation':         f1_val,
+            'precision_train':       prec_tr,
+            'recall_train':          rec_tr,
+            'f1_train':              f1_tr,
+        }
+        record.update(params)  # add remaining hyperparameters
         rows.append(record)
-        if(i%5 == 0):
+
+        if i % 5 == 0:
             print(f"Evaluated {i} parameter combinations...")
 
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows), best_model
+
+def test_models_on_df(models, params_list, test_df, target_col='target'):
+    """
+    models      : list of fitted estimator objects [nn_model, log_model, svm_model]
+    params_list : list of pd.Series of hyper-params matching each model
+    test_df     : the DataFrame containing both features and the target
+    target_col  : name of the label column in test_df
+    ---
+    returns a DataFrame with columns:
+      model_name, accuracy, precision, recall, f1
+    """
+    # split out features / target
+    y_true = test_df[target_col]
+    X      = test_df.drop(columns=[target_col])
+
+    results = []
+    for model, p in zip(models, params_list):
+        # build a fresh copy so we don't pollute the original
+        clf = clone(model)
+
+        # we need to apply the SAME feature transform that was used in training:
+        fm = p.get('feature_method', None)
+
+        if fm == 'polynomial':
+            poly = PolynomialFeatures(degree=int(p['degree']), include_bias=False)
+            X_proc = poly.fit_transform(X)
+
+        elif fm == 'pca':
+            pca = PCA(n_components=int(p['n_components']))
+            X_proc = pca.fit_transform(X)
+
+        elif fm == 'rbf':
+            # RBF: compute kernel against training “basis” from the fitted SVM
+            # we assume the saved model has a `.support_` attribute
+            X_basis = clf.support_vectors_
+            X_proc  = rbf_kernel(X, X_basis, gamma=p['gamma'])
+
+        else:
+            # linear / no extra transform
+            X_proc = X.values  # as numpy array
+
+        # now predict & score
+        y_pred = clf.predict(X_proc)
+
+        results.append({
+            'model_name':        clf.__class__.__name__,
+            'feature_method':    fm or 'linear',
+            'accuracy':          accuracy_score(y_true, y_pred),
+            'precision':         precision_score(y_true, y_pred),
+            'recall':            recall_score(y_true, y_pred),
+            'f1':                f1_score(y_true, y_pred)
+        })
+
+    return pd.DataFrame(results)
 
