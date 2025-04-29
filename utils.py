@@ -8,13 +8,7 @@ from sklearn.preprocessing import PolynomialFeatures
 from sklearn.metrics.pairwise import rbf_kernel
 from sklearn.base import clone
 from sklearn.model_selection import ParameterGrid
-from sklearn.preprocessing import StandardScaler, PolynomialFeatures
-from sklearn.decomposition   import PCA
-from sklearn.svm             import SVC, LinearSVC
-from sklearn.linear_model    import LogisticRegression
-from sklearn.neural_network  import MLPClassifier
-from sklearn.base            import clone
-from sklearn.metrics.pairwise import rbf_kernel
+
 
 
 
@@ -32,7 +26,6 @@ def preprocess_credit_card_data(df):
     df = df[df['MARRIAGE'].isin([1, 2, 3])]
 
     #Identify features
-    target = 'default.payment.next.month'
     categorical_cols = ['SEX', 'EDUCATION', 'MARRIAGE']
 
     #One-hot encode categorical columns
