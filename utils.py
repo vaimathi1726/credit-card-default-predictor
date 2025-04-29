@@ -59,7 +59,9 @@ def grid_evaluate(
       + any estimator params (e.g. 'C', 'penalty', etc.)
     """
     rows = []
+    i=0
     for params in ParameterGrid(param_grid):
+        i += 1
         #pull out transform params
         fm = params.pop('feature_method', None)
         deg = params.pop('degree', None)
@@ -88,12 +90,19 @@ def grid_evaluate(
         #train & predict
         clf = clone(estimator).set_params(**params)
         clf.fit(X_tr, y_train)
-        y_pred = clf.predict(X_te)
+        y_pred_test = clf.predict(X_te)
+        y_pred_train = clf.predict(X_tr)
 
-        #metrics
-        acc  = accuracy_score(y_test, y_pred)
-        prec, rec, f1, _ = precision_recall_fscore_support(
-            y_test, y_pred, average='binary', zero_division=0
+        #test metrics
+        acc_test  = accuracy_score(y_test, y_pred_test)
+        prec_test, rec_test, f1_test, _ = precision_recall_fscore_support(
+            y_test, y_pred_test, average='binary', zero_division=0
+        )
+
+        #train metrics
+        acc_train  = accuracy_score(y_train, y_pred_train)
+        prec_train, rec_train, f1_train, _ = precision_recall_fscore_support(
+            y_train, y_pred_train, average='binary', zero_division=0
         )
 
         #record
@@ -107,13 +116,20 @@ def grid_evaluate(
             'degree':         deg,
             'n_components':   ncomp,
             'gamma':          gam,
-            'accuracy':       acc,
-            'precision':      prec,
-            'recall':         rec,
-            'f1_score':       f1,
+            'accuracy_test':       acc_test,
+            'accuracy_train':      acc_train,
+            'precision_test':      prec_test,
+            'recall_test':         rec_test,
+            'f1_test':       f1_test,
+            'f1_train':      f1_train,
+            'precision_train':      prec_train,
+            'recall_train':         rec_train,
         }
         
         record.update(params)  #remaining clf params
         rows.append(record)
+        if(i%5 == 0):
+            print(f"Evaluated {i} parameter combinations...")
 
     return pd.DataFrame(rows)
+
