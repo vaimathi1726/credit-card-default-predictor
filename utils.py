@@ -43,8 +43,8 @@ def preprocess_credit_card_data(df):
 def grid_evaluate(
     estimator,
     param_grid,
-    X_train, X_test,
-    y_train, y_test
+    X_train, X_validation,
+    y_train, y_validation
 ):
     """
     #This function replicates the functionality of the grid_search function in sklearn, but allows for more customization on our end
@@ -68,35 +68,35 @@ def grid_evaluate(
         ncomp = params.pop('n_components', None)
         gam = params.pop('gamma', None)
 
-        #fit+transform on train, transform on test
+        #fit+transform on train, transform on validation
         
         if fm == 'polynomial':
             poly = PolynomialFeatures(degree=deg, include_bias=False)
             X_tr = poly.fit_transform(X_train)
-            X_te = poly.transform(X_test)
+            X_val = poly.transform(X_validation)
 
         elif fm == 'pca':
             pca = PCA(n_components=ncomp)
             X_tr = pca.fit_transform(X_train)
-            X_te = pca.transform(X_test)
+            X_val = pca.transform(X_validation)
 
         elif fm == 'rbf':
             X_tr = rbf_kernel(X_train, X_train, gamma=gam)
-            X_te = rbf_kernel(X_test,  X_train, gamma=gam)
+            X_val = rbf_kernel(X_validation,  X_train, gamma=gam)
 
         else:
-            X_tr, X_te = X_train, X_test
+            X_tr, X_val = X_train, X_validation
 
         #train & predict
         clf = clone(estimator).set_params(**params)
         clf.fit(X_tr, y_train)
-        y_pred_test = clf.predict(X_te)
+        y_pred_validation = clf.predict(X_val)
         y_pred_train = clf.predict(X_tr)
 
-        #test metrics
-        acc_test  = accuracy_score(y_test, y_pred_test)
-        prec_test, rec_test, f1_test, _ = precision_recall_fscore_support(
-            y_test, y_pred_test, average='binary', zero_division=0
+        #validation metrics
+        acc_validation  = accuracy_score(y_validation, y_pred_validation)
+        prec_validation, rec_validation, f1_validation, _ = precision_recall_fscore_support(
+            y_validation, y_pred_validation, average='binary', zero_division=0
         )
 
         #train metrics
@@ -116,15 +116,17 @@ def grid_evaluate(
             'degree':         deg,
             'n_components':   ncomp,
             'gamma':          gam,
-            'accuracy_test':       acc_test,
+            'accuracy_validation':       acc_validation,
             'accuracy_train':      acc_train,
-            'precision_test':      prec_test,
-            'recall_test':         rec_test,
-            'f1_test':       f1_test,
+            'precision_validation':      prec_validation,
+            'recall_validation':         rec_validation,
+            'f1_validation':       f1_validation,
             'f1_train':      f1_train,
             'precision_train':      prec_train,
             'recall_train':         rec_train,
         }
+
+       
         
         record.update(params)  #remaining clf params
         rows.append(record)
