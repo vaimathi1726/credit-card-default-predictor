@@ -60,7 +60,7 @@ def grid_evaluate(
     rows = []
     best_f1 = -1
     best_model = None
-    best_transform = None
+
     i = 0
 
     for params in ParameterGrid(param_grid):
@@ -111,7 +111,6 @@ def grid_evaluate(
         if f1_val > best_f1:
             best_f1 = f1_val
             best_model = clf  # already fitted
-            best_transform = (fm, deg, ncomp, gam)
 
         # default/cleanup for output
         if fm is None:
