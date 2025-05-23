@@ -16,22 +16,22 @@ from sklearn.model_selection import ParameterGrid
 def preprocess_credit_card_data(df):
     df = df.copy()
 
-    #drop id; unnecessary for analysis
+    
     if 'ID' in df.columns:
         df = df.drop(columns=['ID'])
 
-    #Clean invalid catagorical entries
+   
     df = df[df['SEX'].isin([1, 2])]
     df = df[df['EDUCATION'].isin([1, 2, 3,4,5,6])]
     df = df[df['MARRIAGE'].isin([1, 2, 3])]
 
-    #Identify features
+    
     categorical_cols = ['SEX', 'EDUCATION', 'MARRIAGE']
 
-    #One-hot encode categorical columns
+    
     df = pd.get_dummies(df, columns=categorical_cols, drop_first=False)
 
-    #Force dummy columns to be integers (0 and 1) in case any are in a different form
+   
     dummy_cols = [col for col in df.columns if any(prefix in col for prefix in ['SEX_', 'EDUCATION_', 'MARRIAGE_'])]
     df[dummy_cols] = df[dummy_cols].astype(int)
 
@@ -39,13 +39,6 @@ def preprocess_credit_card_data(df):
 
 
 
-
-from sklearn.model_selection import ParameterGrid
-from sklearn.base import clone
-from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-from sklearn.preprocessing import PolynomialFeatures
-from sklearn.decomposition import PCA
-from sklearn.metrics.pairwise import rbf_kernel
 
 def grid_evaluate(
     estimator,
